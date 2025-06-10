@@ -54,4 +54,4 @@ python main.py --ni --config bedroom.yml --doc bedroom --timesteps 20 --eta 0.85
 Bedroom noisy 2x with langevin:
 ```
 python main.py --ni --config bedroom.yml --doc bedroom --timesteps 20 --eta 0.85 --etaB 1 --deg cs2 --sigma_0 0.05 -i bedroom_cs2_noise0_sigma_0.05_langevin_step10_lr_1e-4 --langevin --langevin_steps 10 --langevin_lr 1e-4
-```
+```# AI618_final_project
