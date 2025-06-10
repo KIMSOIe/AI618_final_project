@@ -294,8 +294,8 @@ class Diffusion(object):
             x_orig = x_orig.to(self.device)
             x_orig = data_transform(self.config, x_orig)
 
-            y_0 = H_funcs.H(x_orig)
-            y_0 = y_0 + sigma_0 * torch.randn_like(y_0)
+            y_0 = H_funcs.H(x_orig) ## y를 알때 x를 찾아내는 과정 // 다만, x를 알기 때문에 HX + noise로 y를 만들고 x'~x를 찾음
+            y_0 = y_0 + sigma_0 * torch.randn_like(y_0) ## gaussian noise로 가정함
 
            
             pinv_y_0 = H_funcs.H_pinv(y_0).view(y_0.shape[0], config.data.channels, self.config.data.image_size, self.config.data.image_size)
@@ -369,7 +369,7 @@ class Diffusion(object):
 
         if self.args.langevin:
             x = efficient_generalized_steps(x, seq, model, self.betas, H_funcs, y_0, sigma_0, \
-                etaB=self.args.etaB, etaA=self.args.eta, etaC=self.args.eta, cls_fn=cls_fn, classes=classes, langevin_lr=self.args.langevin_lr, langevin_steps=self.args.langevin_steps, langevin = True)
+                etaB=self.args.etaB, etaA=self.args.eta, etaC=self.args.eta, cls_fn=cls_fn, classes=classes, langevin_lr=self.args.langevin_lr, langevin_steps=self.args.langevin_steps, langevin = True, langevin_noise = self.args.langevin_noise)
             if last:
                 x = x[0][-1]
             return x
@@ -382,7 +382,7 @@ class Diffusion(object):
             # return [x], None
         
             x = efficient_generalized_steps(x, seq, model, self.betas, H_funcs, y_0, sigma_0, \
-                etaB=self.args.etaB, etaA=self.args.eta, etaC=self.args.eta, cls_fn=cls_fn, classes=classes, langevin_lr=1e-3, langevin_steps=1,langevin = False)
+                etaB=self.args.etaB, etaA=self.args.eta, etaC=self.args.eta, cls_fn=cls_fn, classes=classes, langevin_lr=1e-3, langevin_steps=1,langevin = False, langevin_noise = self.args.langevin_noise)
             if last:
                 x = x[0][-1]
             return x

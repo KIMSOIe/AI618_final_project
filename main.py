@@ -88,8 +88,11 @@ def parse_args_and_config():
     parser.add_argument('--clip_min', type=float, default=0.0, help='Minimum value for clip degradation')
     parser.add_argument('--clip_max', type=float, default=1.0, help='Maximum value for clip degradation')
 
+    
     parser.add_argument('--langevin', action='store_true', help='Use posterior Langevin sampling')
+    parser.add_argument('--langevin_noise', action='store_true', help='Use posterior Langevin sampling')
     parser.add_argument('--likelihood', type=str, default='poisson', help='Likelihood degradation type')
+    parser.add_argument('--lambda_prior', type=float, default=0.01, help='Maximum value for clip degradation')
     args = parser.parse_args()
     args.log_path = os.path.join(args.exp, "logs", args.doc)
 

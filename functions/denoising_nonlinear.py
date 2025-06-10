@@ -79,7 +79,7 @@ def langevin_posterior_sampling(
 
     return x
 
-def efficient_generalized_steps(x, seq, model, b, H_funcs, y_0, sigma_0, etaB, etaA, etaC, cls_fn=None, classes=None,langevin_lr=1e-3, langevin_steps=1, langevin = False):
+def efficient_generalized_steps(x, seq, model, b, H_funcs, y_0, sigma_0, etaB, etaA, etaC, cls_fn=None, classes=None,langevin_lr=1e-3, langevin_steps=1, langevin = False, langevin_noise = False, lambda_prior=0.07):
     with torch.no_grad():
         #setup vectors used in the algorithm
         singulars = H_funcs.singulars()
@@ -168,21 +168,47 @@ def efficient_generalized_steps(x, seq, model, b, H_funcs, y_0, sigma_0, etaB, e
 
             #aggregate all 3 cases and give next prediction
             xt_mod_next = H_funcs.V(Vt_xt_mod_next)
-            xt_next = (at_next.sqrt()[0, 0, 0, 0] * xt_mod_next).view(*x.shape) ## 다음값 예측
+            xt_next = (at_next.sqrt()[0, 0, 0, 0] * xt_mod_next).view(*x.shape) 
+
+            '''command example: 
+            python main.py --ni --config bedroom.yml --doc bedroom --timesteps 20 --eta 0.85 \
+            --etaB 1 --deg cs2 --sigma_0 0.05 -i bedroom_cs2_noise0_sigma_0.05_langevin_step10_lr_1e-4 \
+            --langevin --langevin_steps 10 --langevin_lr 1e-4'''
 
             # ------ Posterior Langevin Refinement ------
-            # Temporarily enable gradients
-            if langevin:
+            if langevin: # Check if Langevin refinement is enabled
+
+                # Temporarily enable gradient tracking for refinement
                 with torch.enable_grad():
                     x_ref = xt_next.clone().detach().requires_grad_(True)
-                    for _ in range(langevin_steps):
+
+                    alpha_next = compute_alpha(b, next_t.long())  # ᾱ_{next_t}
+                    sigma_t = (1 - alpha_next).sqrt().view(-1, 1, 1, 1)
+                    sigma_t = sigma_t.clamp(min=1e-4) 
+
+                    # Perform Langevin refinement for the specified number of steps
+                    for _ in tqdm(range(langevin_steps)):
+                        # Compute ∇_x log p(y | x) (likelihood term)
                         Hx = H_funcs.H(x_ref)
-                        # log-likelihood: -||H(x)-y||^2 / (2 sigma_0^2)
-                        ll = -((Hx - y_0).pow(2).flatten(1).sum(1) / (2 * sigma_0**2)).sum()
-                        grad = torch.autograd.grad(ll, x_ref)[0]
-                        # noise = torch.randn_like(x_ref) * torch.sqrt(torch.tensor(2 * langevin_lr, device=x.device)) ##file name noise1
-                        noise = 0 ##file name noise0
-                        x_ref = x_ref + langevin_lr * grad + noise
+                        ll = - 0.5 * ((Hx - y_0).pow(2).flatten(1).sum(1) / (sigma_0**2)).sum()
+                        grad_ll = torch.autograd.grad(ll, x_ref)[0]
+
+                        # Optionally add Langevin noise
+                        if langevin_noise:
+                            # Compute ∇_x log p(x) (prior term) via the diffusion model
+                            epsilon_pred = model(x_ref, next_t)  # ε̂θ(x_ref, next_t)
+                            grad_prior = -epsilon_pred / (sigma_t)
+                            # noise ~ N(0, I) scaled by sqrt(η)
+                            noise = torch.randn_like(x_ref) * torch.sqrt(torch.tensor(langevin_lr, device=x.device))
+                        else:
+                            grad_prior = 0
+                            noise = 0
+
+                        # Combine the two gradients
+                        total_grad = grad_ll + grad_prior * lambda_prior
+                        # Langevin update: x ← x + η/2 (∇ log p(y|x)) + sqrt(η) * noise
+                        x_ref = x_ref + (langevin_lr/2) * total_grad + noise
+                        x_ref = x_ref.detach().requires_grad_(True)
                     xt_next = x_ref.detach()
 
             x0_preds.append(x0_t.to('cpu'))
