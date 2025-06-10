@@ -294,8 +294,8 @@ class Diffusion(object):
             x_orig = x_orig.to(self.device)
             x_orig = data_transform(self.config, x_orig)
 
-            y_0 = H_funcs.H(x_orig) ## y를 알때 x를 찾아내는 과정 // 다만, x를 알기 때문에 HX + noise로 y를 만들고 x'~x를 찾음
-            y_0 = y_0 + sigma_0 * torch.randn_like(y_0) ## gaussian noise로 가정함
+            y_0 = H_funcs.H(x_orig)
+            y_0 = y_0 + sigma_0 * torch.randn_like(y_0)
 
            
             pinv_y_0 = H_funcs.H_pinv(y_0).view(y_0.shape[0], config.data.channels, self.config.data.image_size, self.config.data.image_size)
@@ -374,10 +374,6 @@ class Diffusion(object):
                 x = x[0][-1]
             return x
         else:
-            '''# Default DDRM sampling
-            #etaA = 1 : y_0 랑 유사
-            #etaA = 0.5 : y_0 보다 contrast가 떨어지고 blur하지만 noisy
-            #etaA = 0 : '''
             # x = stochastic_ddrm_sampling_aligned(x, seq,model,self.betas,H_funcs,y_0,sigma_0,etaB=1.0,etaA=1.0,etaC=1.0,langevin_scale=0.05,langevin_steps=5,cls_fn=None,classes=None)
             # return [x], None
         
